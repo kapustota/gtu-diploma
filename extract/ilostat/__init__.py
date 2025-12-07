@@ -1,0 +1,2 @@
+# ILOSTAT scraper package
+

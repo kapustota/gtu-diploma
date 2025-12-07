@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  scraper-wb:
+    build:
+      context: ./extract/wb
+      dockerfile: Dockerfile
+    container_name: scraper_wb_cpi
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment to override default command
+    # command: python scraper.py
+
+  scraper-oecd:
+    build:
+      context: ./extract/oecd
+      dockerfile: Dockerfile
+    container_name: scraper_oecd_wages
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment to override default command
+    # command: python scraper.py
+
+  scraper-faostat:
+    build:
+      context: ./extract/faostat
+      dockerfile: Dockerfile
+    container_name: scraper_faostat_food_cpi
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment to override default command
+    # command: python scraper.py
+
+  scraper-ilostat:
+    build:
+      context: ./extract/ilostat
+      dockerfile: Dockerfile
+    container_name: scraper_ilostat_wages
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment to override default command
+    # command: python scraper.py
+
