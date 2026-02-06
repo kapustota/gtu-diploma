@@ -1,6 +1,6 @@
 # Extract Service
 
-This service contains scrapers for data collection from various sources.
+This service contains scrapers for data collection from various international statistical sources. All scrapers are fully implemented and operational.
 
 ## Structure
 
@@ -12,35 +12,53 @@ Each scraper is organized in its own subdirectory with:
 
 ## Scrapers
 
-### WorldBank CPI (`wb/`)
+### World Bank CPI (`wb/`)
 
-Fetches Consumer Price Index (CPI) data from WorldBank API.
+Fetches Consumer Price Index (CPI) data from the World Bank REST API (`FP.CPI.TOTL` indicator).
 
-**Building:**
-```bash
-docker build -t scraper-wb:latest -f extract/wb/Dockerfile extract/wb/
-```
+- **API**: `https://api.worldbank.org/v2/country/{code}/indicator/FP.CPI.TOTL`
+- **Format**: JSON
+- **Libraries**: `requests`
 
-**Running:**
-```bash
-docker run --rm scraper-wb:latest
-```
+### OECD Wages (`oecd/`)
 
-Or using docker-compose:
-```bash
-docker-compose up scraper-wb
-```
+Fetches average annual wage data from the OECD SDMX-JSON API (`AV_AN_WAGE` dataset, USD).
 
-**Testing:**
-```bash
-python test_scraper_wb.py
-```
+- **API**: `https://stats.oecd.org/SDMX-JSON/data/AV_AN_WAGE/...`
+- **Format**: SDMX-JSON
+- **Libraries**: `requests`
 
-### Future Scrapers
+### ILOSTAT Wages (`ilostat/`)
 
-- `oecd/` - OECD wages scraper
-- `ilostat/` - ILOSTAT wages scraper
-- `faostat/` - FAOSTAT food CPI scraper
-- `bis/` - BIS housing price scraper
-- `wb/` - World Bank inflation scraper
+Fetches average hourly earnings from the ILOSTAT SDMX API (`DF_EAR_4HRL_SEX_CUR_NB` dataflow). Used as a backup source for countries not covered by OECD.
 
+- **API**: `https://sdmx.ilo.org/rest/data/ILO,DF_EAR_4HRL_SEX_CUR_NB,1.0/all`
+- **Format**: SDMX-JSON
+- **Libraries**: `requests`
+
+### FAOSTAT Food CPI (`faostat/`)
+
+Fetches Food Consumer Price Index data from the FAOSTAT bulk download (item code `23013`, base year 2015 = 100).
+
+- **Source**: `https://bulks-faostat.fao.org/production/ConsumerPriceIndices_E_All_Data_(Normalized).zip`
+- **Format**: ZIP archive containing CSV
+- **Libraries**: `requests`, `pandas`
+
+### BIS Housing Prices (`bis/`)
+
+Fetches residential property price per square meter data from BIS bulk downloads (CSV/XLSX/ZIP).
+
+- **Source**: `https://www.bis.org/statistics/pp_selected_csv.zip` (+ fallback URLs)
+- **Format**: ZIP/XLSX/CSV
+- **Libraries**: `requests`, `pandas`, `openpyxl`
+
+## Libraries
+
+| Library | Purpose | Used by |
+|---------|---------|---------|
+| `requests` | HTTP requests to APIs and bulk download endpoints | all scrapers |
+| `pandas` | Parsing CSV/Excel data, DataFrame operations | BIS, FAOSTAT |
+| `openpyxl` | Reading Excel (.xlsx) files | BIS |
+| `json` (stdlib) | Parsing JSON / SDMX-JSON API responses | OECD, ILOSTAT, World Bank |
+| `zipfile` (stdlib) | Extracting CSV/XLSX from ZIP archives | BIS, FAOSTAT |
+| `io` (stdlib) | In-memory byte/string streams for file parsing | BIS, FAOSTAT |
