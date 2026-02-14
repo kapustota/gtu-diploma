@@ -95,88 +95,116 @@ class ILOSTATWageScraper:
     
     def _parse_sdmx_response(self, data: Dict) -> List[Dict]:
         """
-        Parse SDMX-JSON response from ILOSTAT API
-        
+        Parse SDMX-JSON response from ILOSTAT API.
+        Filters for CUR_TYPE_USD (US dollars) and SEX_T (total) only
+        to avoid mixing local-currency values with USD.
+
         Args:
             data: Raw JSON response from API
-        
+
         Returns:
             List of normalized records
         """
         parsed = []
-        
+
         try:
             # SDMX-JSON structure similar to OECD
             data_section = data.get('data', {})
             datasets = data_section.get('dataSets', [])
-            
+
             if not datasets:
                 return []
-            
+
             dataset = datasets[0]
             structure_ref = dataset.get('structure', 0)
-            
+
             structures = data_section.get('structures', [])
             if structure_ref >= len(structures):
                 return []
-            
+
             structure = structures[structure_ref]
             dimensions = structure.get('dimensions', {})
-            
+
             # Get time dimension
             obs_dimensions = dimensions.get('observation', [])
             if not obs_dimensions:
                 return []
-            
+
             time_dim = obs_dimensions[0]
             time_values = {i: val.get('name', '') for i, val in enumerate(time_dim.get('values', []))}
-            
+
             # Get series dimensions to parse series keys
             series_dims = dimensions.get('series', [])
             ref_area_dim = None
-            for dim in series_dims:
+            cur_dim_pos = None
+            cur_usd_index = None
+            sex_dim_pos = None
+            sex_total_index = None
+
+            for dim_pos, dim in enumerate(series_dims):
                 if dim.get('id') == 'REF_AREA':
                     ref_area_dim = dim
-                    break
-            
+                elif dim.get('id') == 'CUR':
+                    cur_dim_pos = dim_pos
+                    for i, val in enumerate(dim.get('values', [])):
+                        if val.get('id') == 'CUR_TYPE_USD':
+                            cur_usd_index = i
+                            break
+                elif dim.get('id') == 'SEX':
+                    sex_dim_pos = dim_pos
+                    for i, val in enumerate(dim.get('values', [])):
+                        if val.get('id') == 'SEX_T':
+                            sex_total_index = i
+                            break
+
             if not ref_area_dim:
                 return []
-            
+
             # Create mapping of dimension indices to country codes
             country_map = {}
             for i, val in enumerate(ref_area_dim.get('values', [])):
                 country_code = val.get('id', '')
                 country_name = val.get('name', '')
                 country_map[i] = {'code': country_code, 'name': country_name}
-            
+
             # Parse series data
             series_dict = dataset.get('series', {})
-            
+
             for series_key, series_data in series_dict.items():
                 # Parse series key (format: "1:0:0:0:0" where first is REF_AREA index)
                 key_parts = [int(x) for x in series_key.split(':')]
-                
+
+                # Filter by CUR=USD
+                if cur_dim_pos is not None and cur_usd_index is not None:
+                    if key_parts[cur_dim_pos] != cur_usd_index:
+                        continue
+
+                # Filter by SEX=Total
+                if sex_dim_pos is not None and sex_total_index is not None:
+                    if key_parts[sex_dim_pos] != sex_total_index:
+                        continue
+
                 # Get country from first dimension
                 country_info = country_map.get(key_parts[0])
                 if not country_info:
                     continue
-                
+
                 country_code = country_info['code']
                 country_name = country_info['name']
-                
+
                 observations = series_data.get('observations', {})
-                
+
                 for obs_key, value_list in observations.items():
                     obs_index = int(obs_key)
                     # Value is first element of the list
                     value = value_list[0] if isinstance(value_list, list) and len(value_list) > 0 else value_list
-                    
+
                     if value is not None:
                         # Get time period from time dimension
                         time_period = time_values.get(obs_index, '')
                         try:
                             year = int(time_period) if time_period.isdigit() else None
-                            
+
                             if year:
                                 parsed.append({
                                     'country_code': country_code,
@@ -184,12 +212,12 @@ class ILOSTATWageScraper:
                                     'year': year,
                                     'gross_wage': float(value),
                                     'indicator': 'Average hourly earnings',
-                                    'currency': 'USD',  # Based on CUR dimension
+                                    'currency': 'USD',
                                     'source': 'ILOSTAT'
                                 })
                         except (ValueError, TypeError):
                             continue
-            
+
             print(f"Parsed {len(parsed)} records from ILOSTAT")
             return parsed
             

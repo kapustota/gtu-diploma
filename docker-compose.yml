@@ -41,3 +41,29 @@ services:
     # Uncomment to override default command
     # command: python scraper.py
 
+  mongo:
+    image: mongo:7
+    container_name: diploma_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./load/init_mongo.js:/docker-entrypoint-initdb.d/init_mongo.js:ro
+
+  spark:
+    build:
+      context: .
+      dockerfile: transform/Dockerfile
+    container_name: diploma_spark_etl
+    depends_on:
+      - mongo
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGO_DB=diploma
+    volumes:
+      - ./extract:/app/extract
+      - ./transform:/app/transform
+
+volumes:
+  mongo_data:
