@@ -129,6 +129,47 @@ ISO2_TO_ISO3 = {
 }
 
 
+# ISO3 → country name mapping (built from M49 dicts + manual additions)
+ISO3_TO_NAME = {iso3: M49_TO_NAME[m49] for m49, iso3 in M49_TO_ISO3.items() if m49 in M49_TO_NAME}
+ISO3_TO_NAME.update({
+    "AND": "Andorra", "ANT": "Netherlands Antilles", "COK": "Cook Islands",
+    "CUB": "Cuba", "FLK": "Falkland Islands", "GGY": "Guernsey",
+    "GIB": "Gibraltar", "IMN": "Isle of Man", "JEY": "Jersey",
+    "KOS": "Kosovo", "LIE": "Liechtenstein", "MHL": "Marshall Islands",
+    "REU": "Réunion", "SHN": "Saint Helena", "TKL": "Tokelau",
+    "TKM": "Turkmenistan", "WLF": "Wallis and Futuna",
+    "ASM": "American Samoa", "ATG": "Antigua and Barbuda", "BHS": "Bahamas",
+    "BRB": "Barbados", "BLZ": "Belize", "BEN": "Benin", "BTN": "Bhutan",
+    "BIH": "Bosnia and Herzegovina", "BWA": "Botswana", "BRN": "Brunei",
+    "BFA": "Burkina Faso", "BDI": "Burundi", "CPV": "Cape Verde",
+    "TCD": "Chad", "COM": "Comoros", "COG": "Congo", "COD": "DR Congo",
+    "CRI": "Costa Rica", "CIV": "Côte d'Ivoire", "DJI": "Djibouti",
+    "DMA": "Dominica", "SLV": "El Salvador", "GNQ": "Equatorial Guinea",
+    "ERI": "Eritrea", "FJI": "Fiji", "GAB": "Gabon", "GMB": "Gambia",
+    "GRD": "Grenada", "GIN": "Guinea", "GNB": "Guinea-Bissau",
+    "GUY": "Guyana", "KIR": "Kiribati", "PRK": "North Korea",
+    "LAO": "Laos", "LSO": "Lesotho", "LBR": "Liberia", "LBY": "Libya",
+    "MAC": "Macao", "MKD": "North Macedonia", "MDG": "Madagascar",
+    "MWI": "Malawi", "MDV": "Maldives", "MLI": "Mali", "MLT": "Malta",
+    "MRT": "Mauritania", "MUS": "Mauritius", "FSM": "Micronesia",
+    "MDA": "Moldova", "MCO": "Monaco", "NAM": "Namibia", "NRU": "Nauru",
+    "NER": "Niger", "PLW": "Palau", "PNG": "Papua New Guinea",
+    "PRY": "Paraguay", "RWA": "Rwanda", "KNA": "Saint Kitts and Nevis",
+    "LCA": "Saint Lucia", "VCT": "Saint Vincent", "WSM": "Samoa",
+    "SMR": "San Marino", "STP": "São Tomé and Príncipe",
+    "SYC": "Seychelles", "SLE": "Sierra Leone", "SLB": "Solomon Islands",
+    "SOM": "Somalia", "SUR": "Suriname", "SWZ": "Eswatini",
+    "SYR": "Syria", "TWN": "Taiwan", "TZA": "Tanzania", "TLS": "Timor-Leste",
+    "TGO": "Togo", "TON": "Tonga", "TTO": "Trinidad and Tobago",
+    "TUV": "Tuvalu", "UGA": "Uganda", "VUT": "Vanuatu", "YEM": "Yemen",
+    "PSE": "Palestine", "CUW": "Curaçao", "SXM": "Sint Maarten",
+    "BES": "Bonaire", "PRI": "Puerto Rico", "GUM": "Guam",
+    "MNP": "Northern Mariana Islands", "VIR": "US Virgin Islands",
+    "TCA": "Turks and Caicos", "CYM": "Cayman Islands", "BMU": "Bermuda",
+    "VGB": "British Virgin Islands",
+})
+
+
 def m49_to_iso3(m49_code: str) -> str:
     """Convert M49 numeric code to ISO3 alpha-3 code. Returns None if not found."""
     clean = str(m49_code).strip().strip("'\"")

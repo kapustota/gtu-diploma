@@ -65,5 +65,17 @@ services:
       - ./extract:/app/extract
       - ./transform:/app/transform
 
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: diploma_dashboard
+    depends_on:
+      - mongo
+    ports:
+      - "8501:8501"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+
 volumes:
   mongo_data:
