@@ -218,8 +218,12 @@ def render_cross_country():
             ]
 
             # Base year = earliest year where ALL selected countries have data
-            years_per_country = compare_df.groupby("country_code")["year"].min()
-            common_base_year = int(years_per_country.max())
+            years_with_all = (
+                compare_df.groupby("year")["country_code"]
+                .nunique()
+                .loc[lambda s: s == compare_df["country_code"].nunique()]
+            )
+            common_base_year = int(years_with_all.index.min())
 
             # USD-adjusted toggle
             has_usd = "value_usd" in compare_df.columns and compare_df["value_usd"].notna().any()
@@ -228,11 +232,20 @@ def render_cross_country():
 
             if comp_use_usd and has_usd:
                 compare_df = compare_df[compare_df["value_usd"].notna()]
-                compare_df = rebase_dynamic(compare_df, ["country_code"], value_col="value_usd")
+                val_col = "value_usd"
                 subtitle = " (USD-adjusted)"
             else:
-                compare_df = rebase_dynamic(compare_df, ["country_code"])
+                val_col = "value"
                 subtitle = ""
+
+            # Rebase all countries to the common base year = 100
+            base_values = (
+                compare_df[compare_df["year"] == common_base_year][["country_code", val_col]]
+                .rename(columns={val_col: "_base"})
+            )
+            compare_df = compare_df.merge(base_values, on="country_code", how="left")
+            compare_df["index_value"] = (compare_df[val_col] / compare_df["_base"] * 100).round(2)
+            compare_df = compare_df.drop(columns=["_base"])
 
             compare_df["country_label"] = compare_df.apply(
                 lambda r: f"{r['country_code']} — {r['country_name']}", axis=1
