@@ -1,6 +1,6 @@
 """
 PySpark ETL Pipeline
-Ingests data from all 5 scrapers, normalizes, deduplicates,
+Ingests data from 4 scrapers, normalizes, deduplicates,
 rebases indices to a common base year, and writes to MongoDB.
 """
 
@@ -13,7 +13,6 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
 )
-from pyspark.sql.window import Window
 
 # Add project root to path so scrapers can be imported
 sys.path.insert(0, '/app')
@@ -76,19 +75,6 @@ def ingest_worldbank() -> list:
     print(f"  WorldBank: {len(records)} raw records")
     return records
 
-
-def ingest_oecd() -> list:
-    """Ingest OECD wage data"""
-    print("=" * 60)
-    print("Ingesting OECD wage data...")
-    from extract.oecd.scraper import OECDWageScraper
-    scraper = OECDWageScraper()
-    grouped = scraper.get_all_oecd_countries_wages()
-    records = []
-    for country_records in grouped.values():
-        records.extend(country_records)
-    print(f"  OECD: {len(records)} raw records")
-    return records
 
 
 def ingest_faostat() -> list:
@@ -156,38 +142,6 @@ def normalize_worldbank(spark: SparkSession, raw: list) -> DataFrame:
     return spark.createDataFrame(rows, schema=UNIFIED_SCHEMA)
 
 
-def normalize_oecd(spark: SparkSession, raw: list) -> DataFrame:
-    """
-    Normalize OECD wage data.
-    Deduplication (UNIT_MEASURE=USD_PPP filter) is already done in the scraper.
-    Extra safety: groupBy country+year → pick first value.
-    """
-    now = datetime.utcnow()
-    rows = []
-    for r in raw:
-        if r.get('avg_annual_wage_usd') is not None and r.get('country_code'):
-            rows.append((
-                r['country_code'],
-                r.get('country_name', ''),
-                int(r['year']),
-                float(r['avg_annual_wage_usd']),
-                None,
-                "avg_annual_wage",
-                "oecd",
-                now,
-            ))
-
-    df = spark.createDataFrame(rows, schema=UNIFIED_SCHEMA)
-
-    # Extra dedup: if scraper still returns >1 row per country+year, keep first
-    w = Window.partitionBy("country_code", "year").orderBy("value")
-    df = (
-        df.withColumn("_rn", F.row_number().over(w))
-        .filter(F.col("_rn") == 1)
-        .drop("_rn")
-    )
-    return df
-
 
 def normalize_faostat(spark: SparkSession, raw: list) -> DataFrame:
     """
@@ -247,7 +201,7 @@ def normalize_ilostat(spark: SparkSession, raw: list) -> DataFrame:
                 int(r['year']),
                 float(r['gross_wage']),
                 None,
-                "hourly_wage",
+                "monthly_wage",
                 "ilostat",
                 now,
             ))
@@ -290,7 +244,7 @@ def normalize_bis(spark: SparkSession, raw: list) -> DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# Rebase all indicators to 2015=100
+# Rebase all indicators to 2016=100
 # ---------------------------------------------------------------------------
 
 def rebase_to_2015(df: DataFrame) -> DataFrame:
@@ -300,7 +254,7 @@ def rebase_to_2015(df: DataFrame) -> DataFrame:
     The original value column is never modified.
     """
     base_2015 = (
-        df.filter(F.col("year") == 2015)
+        df.filter(F.col("year") == 2016)
         .select("country_code", "indicator_type", F.col("value").alias("_base"))
     )
 
@@ -374,7 +328,6 @@ def main():
 
     # Step 1: Ingest raw data from all scrapers
     wb_raw = ingest_worldbank()
-    oecd_raw = ingest_oecd()
     faostat_raw = ingest_faostat()
     ilostat_raw = ingest_ilostat()
     bis_raw = ingest_bis()
@@ -384,13 +337,11 @@ def main():
     print("Normalizing data...")
 
     wb_df = normalize_worldbank(spark, wb_raw)
-    oecd_df = normalize_oecd(spark, oecd_raw)
     faostat_df = normalize_faostat(spark, faostat_raw)
     ilostat_df = normalize_ilostat(spark, ilostat_raw)
     bis_df = normalize_bis(spark, bis_raw)
 
     print(f"  WorldBank CPI:     {wb_df.count()} records")
-    print(f"  OECD Wages:        {oecd_df.count()} records")
     print(f"  FAOSTAT Food CPI:  {faostat_df.count()} records")
     print(f"  ILOSTAT Wages:     {ilostat_df.count()} records")
     print(f"  BIS Housing Index: {bis_df.count()} records")
@@ -398,7 +349,6 @@ def main():
     # Step 3: Union all and drop non-country aggregates
     unified = (
         wb_df
-        .unionByName(oecd_df)
         .unionByName(faostat_df)
         .unionByName(ilostat_df)
         .unionByName(bis_df)
@@ -407,9 +357,9 @@ def main():
     total = unified.count()
     print(f"\n  Total unified records: {total}")
 
-    # Step 4: Rebase all indicators to 2015=100
+    # Step 4: Rebase all indicators to 2016=100
     print("=" * 60)
-    print("Rebasing all indicators to 2015=100...")
+    print("Rebasing all indicators to 2016=100...")
     unified = rebase_to_2015(unified)
 
     # Step 5: Write to MongoDB
